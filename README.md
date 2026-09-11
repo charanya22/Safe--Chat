@@ -136,4 +136,29 @@ Risk Classification
 Safety Alert
   ↓
 Parent Guidance
-Live Demo:https://ai.studio/apps/999c26d8-dda9-4286-9119-26438f4f865a?fullscreenApplet=true
+# SafeChat
+
+Privacy-preserving AI for child online safety, risk detection, alerts, and parent guidance.
+
+## 🚀 Live Demo
+
+👉 [Open SafeChat Live Demo](https://ai.studio/apps/999c26d8-dda9-4286-9119-26438f4f865a?fullscreenApplet=true)
+
+## 💡 About
+
+SafeChat detects potential online safety risks and provides parents with actionable safety signals and guidance without exposing private conversations.
+
+## ✨ Features
+
+- 🤖 AI Safety Detection
+- 🛡️ Privacy Protection
+- 🚨 Safety Alerts
+- 📊 Family Safety Dashboard
+- 👨‍👩‍👧 Parent Guidance
+- 🔍 AI Detection History
+- 🧪 Device Activity Simulator
+- 🔐 Secure Demo Login
+
+## 🏆 Hackathon
+
+Built for DeVert-A-Thon 2026.
