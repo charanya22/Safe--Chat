@@ -1,0 +1,6 @@
+{
+  "name": "SafeChat",
+  "description": "Safe conversations. Safer families. Privacy-preserving child safety and cyberbullying protection for modern families.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
