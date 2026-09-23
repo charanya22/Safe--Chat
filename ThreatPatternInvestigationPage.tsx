@@ -29,7 +29,7 @@ import {
   Sparkles,
   Info,
 } from 'lucide-react';
-import { ChildIncident, RiskLevel, ThreateningMessageEvidence, PatternEscalationStep } from '../types';
+import { ChildIncident, RiskLevel, ThreateningMessageEvidence, PatternEscalationStep } from './types';
 
 interface ThreatPatternInvestigationPageProps {
   incidentId: string;

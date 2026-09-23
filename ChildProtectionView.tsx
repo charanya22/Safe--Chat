@@ -16,7 +16,7 @@ import {
   Loader2,
   Info,
 } from 'lucide-react';
-import { ChildProtectionSession } from '../types';
+import { ChildProtectionSession } from './types';
 
 interface ChildProtectionViewProps {
   initialCode?: string | null;

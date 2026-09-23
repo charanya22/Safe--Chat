@@ -31,7 +31,7 @@ import {
   Pie,
   Cell,
 } from 'recharts';
-import { ChildProfile, RiskConcentrationItem, RiskLevel } from '../types';
+import { ChildProfile, RiskConcentrationItem, RiskLevel } from './types';
 
 interface FamilyOverviewProps {
   childrenList: ChildProfile[];

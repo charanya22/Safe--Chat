@@ -1,6 +1,6 @@
 import React from 'react';
 import { ShieldCheck, Lock, UserX, EyeOff, FileText, CheckCircle2 } from 'lucide-react';
-import { PrivacyMetrics } from '../types';
+import { PrivacyMetrics } from './types';
 
 interface PrivacyBannerProps {
   metrics: PrivacyMetrics;

@@ -1,6 +1,6 @@
 import React from 'react';
 import { ShieldAlert, AlertTriangle, ShieldCheck, Info } from 'lucide-react';
-import { RiskCategoryScore, RiskLevel } from '../types';
+import { RiskCategoryScore, RiskLevel } from './types';
 
 interface RiskScoreCardProps {
   score: number;

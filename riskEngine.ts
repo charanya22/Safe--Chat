@@ -1,4 +1,4 @@
-import { ChatMessage, SafetyAnalysisResult, RiskLevel, BehavioralPattern, RiskCategoryScore } from '../types';
+import { ChatMessage, SafetyAnalysisResult, RiskLevel, BehavioralPattern, RiskCategoryScore } from './types';
 import { sanitizeConversationHistory } from './privacyFilter';
 
 export function analyzeConversationBehavior(

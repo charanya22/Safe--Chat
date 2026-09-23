@@ -6,10 +6,10 @@ import path from 'path';
 import crypto from 'crypto';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
-import { sanitizeMessageContent, sanitizeConversationHistory } from './src/lib/privacyFilter';
-import { analyzeConversationBehavior } from './src/lib/riskEngine';
-import { DEMO_SCENARIOS } from './src/data/scenarios';
-import { ChatMessage, RiskLevel, CustomTestConversation, CustomTestMessage, RiskConcentrationItem } from './src/types';
+import { sanitizeMessageContent, sanitizeConversationHistory } from './privacyFilter';
+import { analyzeConversationBehavior } from './riskEngine';
+import { DEMO_SCENARIOS } from './scenarios';
+import { ChatMessage, RiskLevel, CustomTestConversation, CustomTestMessage, RiskConcentrationItem } from './types';
 
 // In-Memory Data Store for SafeChat Production Prototype
 interface ParentUserRecord {

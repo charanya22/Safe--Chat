@@ -17,7 +17,7 @@ import {
   MoreVertical,
   Layers,
 } from 'lucide-react';
-import { ChildProfile } from '../types';
+import { ChildProfile } from './types';
 
 interface ChildDeviceSimulatorProps {
   isOpen: boolean;
