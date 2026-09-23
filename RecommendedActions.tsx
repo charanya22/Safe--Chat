@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { MessageSquare, Copy, Check, PhoneCall, HeartHandshake, ShieldCheck } from 'lucide-react';
-import { ParentActionRecommendation } from '../types';
+import { ParentActionRecommendation } from './types';
 
 interface RecommendedActionsProps {
   recommendations: ParentActionRecommendation[];

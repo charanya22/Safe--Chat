@@ -21,7 +21,7 @@ import {
   ChildConversation,
   ChildIncident,
   RiskLevel,
-} from '../types';
+} from './types';
 import { ChatAnalysisVisualizer } from './ChatAnalysisVisualizer';
 import { MessageSquareWarning, Flame } from 'lucide-react';
 

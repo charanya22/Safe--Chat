@@ -8,7 +8,7 @@ import {
   ShieldAlert,
   Lock,
 } from 'lucide-react';
-import { ParentNotification } from '../types';
+import { ParentNotification } from './types';
 
 interface NotificationCenterProps {
   isOpen: boolean;

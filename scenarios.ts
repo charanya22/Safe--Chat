@@ -1,4 +1,4 @@
-import { ScenarioDefinition } from '../types';
+import { ScenarioDefinition } from './types';
 
 export const DEMO_SCENARIOS: ScenarioDefinition[] = [
   {

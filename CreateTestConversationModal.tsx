@@ -16,7 +16,7 @@ import {
   Layers,
   ArrowRight,
 } from 'lucide-react';
-import { ChildProfile } from '../types';
+import { ChildProfile } from './types';
 
 interface CreateTestConversationModalProps {
   isOpen: boolean;

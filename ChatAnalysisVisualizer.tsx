@@ -33,7 +33,7 @@ import {
   CartesianGrid,
   Legend,
 } from 'recharts';
-import { ChildProfile, ChildConversation, RiskLevel } from '../types';
+import { ChildProfile, ChildConversation, RiskLevel } from './types';
 
 interface ChatAnalysisVisualizerProps {
   child: ChildProfile;

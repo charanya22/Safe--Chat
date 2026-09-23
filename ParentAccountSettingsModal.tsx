@@ -12,7 +12,7 @@ import {
   Loader2,
   Trash2,
 } from 'lucide-react';
-import { ParentUser } from '../types';
+import { ParentUser } from './types';
 
 interface ParentAccountSettingsModalProps {
   isOpen: boolean;

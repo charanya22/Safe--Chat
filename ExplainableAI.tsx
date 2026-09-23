@@ -1,6 +1,6 @@
 import React from 'react';
 import { HelpCircle, CheckCircle2, ShieldAlert, Cpu } from 'lucide-react';
-import { BehavioralPattern } from '../types';
+import { BehavioralPattern } from './types';
 
 interface ExplainableAIProps {
   patterns: BehavioralPattern[];

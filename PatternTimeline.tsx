@@ -1,6 +1,6 @@
 import React from 'react';
 import { TrendingUp, AlertCircle, Calendar, ArrowUpRight } from 'lucide-react';
-import { EscalationDataPoint, RiskLevel } from '../types';
+import { EscalationDataPoint, RiskLevel } from './types';
 import {
   ResponsiveContainer,
   AreaChart,

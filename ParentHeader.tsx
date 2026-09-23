@@ -13,7 +13,7 @@ import {
   ExternalLink,
   MessageSquarePlus,
 } from 'lucide-react';
-import { ParentUser, ParentNotification, ChildProfile } from '../types';
+import { ParentUser, ParentNotification, ChildProfile } from './types';
 import { SafeChatLogo } from './SafeChatLogo';
 
 interface ParentHeaderProps {
