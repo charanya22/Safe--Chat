@@ -143,7 +143,7 @@ Privacy-preserving AI for child online safety, risk detection, alerts, and paren
 ## 🚀 Live Demo
 
 👉 [Open SafeChat Live Demo]
-(safechat-charanya-2026.netlify.app)
+(https://ai.studio/apps/999c26d8-dda9-4286-9119-26438f4f865a?fullscreenApplet=true)
 
 ## 💡 About
 
