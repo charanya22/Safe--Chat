@@ -248,12 +248,25 @@ export interface ChildIncident {
   behavioral_patterns: BehavioralPattern[];
   why_flagged: string[];
   recommended_actions: ParentActionRecommendation[];
-  status: 'open' | 'under_review' | 'resolved';
+  status: 'open' | 'under_review' | 'resolved' | 'reviewed';
   created_at: string;
   // Threatening chat excerpts and 4-tier pattern analysis
   threatening_messages?: ThreateningMessageEvidence[];
   pattern_escalation?: PatternEscalationStep[];
   four_tier_analysis?: FourTierAnalysis;
+}
+
+export interface RecentActivityItem {
+  id: string;
+  child_id: string;
+  child_name: string;
+  type: 'alert' | 'sync' | 'analysis' | 'reviewed';
+  title: string;
+  description: string;
+  risk_level?: RiskLevel;
+  timestamp: string;
+  incident_id?: string;
+  source?: string;
 }
 
 export interface ParentNotification {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { ParentHeader } from './components/ParentHeader';
+import { ParentHeader, DashboardViewMode } from './components/ParentHeader';
 import { ParentLogin } from './components/ParentLogin';
 import { FamilyOverview } from './components/FamilyOverview';
 import { ChildSafetyDashboard } from './components/ChildSafetyDashboard';
@@ -11,9 +11,12 @@ import { ChildProtectionView } from './components/ChildProtectionView';
 import { AddChildPairingModal } from './components/AddChildPairingModal';
 import { ParentAccountSettingsModal } from './components/ParentAccountSettingsModal';
 import { CreateTestConversationModal } from './components/CreateTestConversationModal';
+import { ScenarioSimulator } from './components/ScenarioSimulator';
+import { AlertHistoryPage } from './components/AlertHistoryPage';
+import { PrivacyPage } from './components/PrivacyPage';
 import { useParentRealtime } from './hooks/useParentRealtime';
 import { ParentUser, ChildProfile, ParentNotification } from './types';
-import { Loader2, AlertTriangle, CheckCircle2, Info, X } from 'lucide-react';
+import { Loader2, AlertTriangle, CheckCircle2, Info, X, RefreshCw } from 'lucide-react';
 
 const getInitialIncidentId = (): string | null => {
   if (typeof window === 'undefined') return null;
@@ -37,6 +40,16 @@ const getInitialRole = (): 'select' | 'parent' | 'child' => {
   return 'parent';
 };
 
+const getInitialViewMode = (): DashboardViewMode => {
+  if (typeof window === 'undefined') return 'family';
+  const params = new URLSearchParams(window.location.search);
+  const view = params.get('view');
+  if (view === 'simulator' || view === 'history' || view === 'privacy' || view === 'child' || view === 'family') {
+    return view as DashboardViewMode;
+  }
+  return 'family';
+};
+
 const getUrlCode = (): string | null => {
   if (typeof window === 'undefined') return null;
   const params = new URLSearchParams(window.location.search);
@@ -47,6 +60,7 @@ export default function App() {
   const [currentRole, setCurrentRole] = useState<'select' | 'parent' | 'child'>(getInitialRole);
   const [urlPairingCode, setUrlPairingCode] = useState<string | null>(getUrlCode);
 
+  // The public portfolio demo opens automatically without requiring a sign-in
   const [authToken, setAuthToken] = useState<string | null>(() => {
     return localStorage.getItem('safechat_auth_token') || 'demo_token_priya';
   });
@@ -61,7 +75,7 @@ export default function App() {
   const [childrenList, setChildrenList] = useState<ChildProfile[]>([]);
   const [selectedChildId, setSelectedChildId] = useState<string>('child_aarav_01');
   const [notifications, setNotifications] = useState<ParentNotification[]>([]);
-  const [viewMode, setViewMode] = useState<'family' | 'child'>('family');
+  const [viewMode, setViewMode] = useState<DashboardViewMode>(getInitialViewMode);
   const [activeIncidentId, setActiveIncidentId] = useState<string | null>(getInitialIncidentId);
 
   // Modals state
@@ -71,12 +85,14 @@ export default function App() {
   const [isAccountSettingsOpen, setIsAccountSettingsOpen] = useState<boolean>(false);
   const [isCreateTestConversationOpen, setIsCreateTestConversationOpen] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Listen for browser forward/back buttons
   useEffect(() => {
     const handlePopState = () => {
       setActiveIncidentId(getInitialIncidentId());
       setCurrentRole(getInitialRole());
+      setViewMode(getInitialViewMode());
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
@@ -93,9 +109,20 @@ export default function App() {
     setActiveIncidentId(null);
   };
 
+  const handleSetViewMode = (mode: DashboardViewMode) => {
+    setViewMode(mode);
+    if (activeIncidentId) {
+      handleBackFromIncident();
+    }
+    const url = mode === 'family' ? '/' : `/?view=${mode}`;
+    window.history.pushState({}, '', url);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   // Fetch children and notifications
   const loadDashboardData = useCallback(async () => {
     try {
+      setLoadError(null);
       const parentId = parent?.id || 'parent_priya_01';
       const [childrenRes, notifRes, profileRes] = await Promise.all([
         fetch(`/api/children?parent_id=${encodeURIComponent(parentId)}`),
@@ -120,8 +147,9 @@ export default function App() {
         const pData = await profileRes.json();
         setParent(pData);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching dashboard data:', err);
+      setLoadError('Failed to synchronize family data. Click below to reconnect.');
     } finally {
       setIsLoading(false);
     }
@@ -257,15 +285,24 @@ export default function App() {
   }
 
   // --------------------------------------------------------------------------
-  // ROLE 3: PARENT PORTAL
+  // ROLE 3: PARENT PORTAL (PUBLIC DEMO DEFAULT)
   // --------------------------------------------------------------------------
   if (!authToken) {
     return (
       <ParentLogin
         onLoginSuccess={handleLoginSuccess}
         onBackToRoleSelect={() => {
-          setCurrentRole('select');
-          window.history.pushState({}, '', '/?role=select');
+          // Re-enter public demo mode immediately with zero sign-in friction
+          setAuthToken('demo_token_priya');
+          setParent({
+            id: 'parent_priya_01',
+            email: 'priya.sharma@example.com',
+            full_name: 'Priya Sharma',
+            phone_number: '+1 (555) 438-9201',
+            children_count: 3,
+          });
+          setCurrentRole('parent');
+          loadDashboardData();
         }}
       />
     );
@@ -294,23 +331,34 @@ export default function App() {
         }}
         onLogout={handleLogout}
         viewMode={viewMode}
-        onSetViewMode={(mode) => {
-          setViewMode(mode);
-          if (activeIncidentId) {
-            handleBackFromIncident();
-          }
-        }}
+        onSetViewMode={handleSetViewMode}
         realtimeConnected={realtimeConnected}
       />
 
       {/* Main Content Area */}
       <main className="flex-1 mx-auto w-full max-w-7xl px-4 py-6 sm:px-6">
         {isLoading ? (
-          <div className="flex h-64 items-center justify-center">
-            <div className="flex items-center gap-3 text-slate-500 text-sm font-medium">
-              <Loader2 className="h-5 w-5 animate-spin text-indigo-600" />
-              <span>Connecting to SafeChat Protected Family Mesh...</span>
-            </div>
+          <div className="flex h-64 flex-col items-center justify-center gap-3">
+            <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
+            <span className="text-sm font-medium text-slate-500">
+              Connecting to SafeChat Protected Family Mesh...
+            </span>
+          </div>
+        ) : loadError ? (
+          <div className="rounded-2xl border border-rose-200 bg-white p-8 text-center max-w-lg mx-auto shadow-sm">
+            <AlertTriangle className="h-8 w-8 text-rose-500 mx-auto mb-3" />
+            <h2 className="text-base font-bold text-slate-900">Connection Interrupted</h2>
+            <p className="text-xs text-slate-600 mt-1">{loadError}</p>
+            <button
+              onClick={() => {
+                setIsLoading(true);
+                loadDashboardData();
+              }}
+              className="mt-4 inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-500 shadow-xs cursor-pointer"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              <span>Retry Connection</span>
+            </button>
           </div>
         ) : activeIncidentId ? (
           /* Separate Dedicated Threat Pattern Investigation Web Page */
@@ -327,12 +375,33 @@ export default function App() {
             onOpenIncident={handleOpenIncident}
             onOpenAddChildModal={() => setIsAddChildModalOpen(true)}
             onOpenCreateTestConversation={() => setIsCreateTestConversationOpen(true)}
+            onOpenSimulator={() => handleSetViewMode('simulator')}
+            onOpenHistory={() => handleSetViewMode('history')}
+            onRefreshData={loadDashboardData}
           />
+        ) : viewMode === 'simulator' ? (
+          <ScenarioSimulator
+            childrenList={childrenList}
+            onScenarioCompleted={(incidentId) => {
+              loadDashboardData();
+            }}
+            onOpenIncident={handleOpenIncident}
+            onNavigateToDashboard={() => handleSetViewMode('family')}
+            onNavigateToHistory={() => handleSetViewMode('history')}
+          />
+        ) : viewMode === 'history' ? (
+          <AlertHistoryPage
+            childrenList={childrenList}
+            onOpenIncident={handleOpenIncident}
+            onRefreshData={loadDashboardData}
+          />
+        ) : viewMode === 'privacy' ? (
+          <PrivacyPage />
         ) : (
           selectedChild && (
             <ChildSafetyDashboard
               child={selectedChild}
-              onBackToFamily={() => setViewMode('family')}
+              onBackToFamily={() => handleSetViewMode('family')}
               onOpenDeviceSimulator={() => setIsDeviceSimulatorOpen(true)}
               onOpenIncident={handleOpenIncident}
               onDisconnectDevice={handleDisconnectDevice}
@@ -372,7 +441,7 @@ export default function App() {
 
             <button
               onClick={dismissToast}
-              className="text-slate-400 hover:text-white p-1 rounded transition"
+              className="text-slate-400 hover:text-white p-1 rounded transition cursor-pointer"
             >
               <X className="h-4 w-4" />
             </button>

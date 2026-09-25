@@ -93,7 +93,7 @@ interface InMemoryStore {
     behavioral_patterns: any[];
     why_flagged: string[];
     recommended_actions: any[];
-    status: 'open' | 'under_review' | 'resolved';
+    status: 'open' | 'under_review' | 'resolved' | 'reviewed';
     created_at: string;
     threatening_messages?: any[];
     pattern_escalation?: any[];
@@ -113,6 +113,18 @@ interface InMemoryStore {
     created_at: string;
   }>;
   custom_conversations: CustomTestConversation[];
+  activity_feed: Array<{
+    id: string;
+    child_id: string;
+    child_name: string;
+    type: 'alert' | 'sync' | 'analysis' | 'reviewed';
+    title: string;
+    description: string;
+    risk_level?: RiskLevel;
+    timestamp: string;
+    incident_id?: string;
+    source?: string;
+  }>;
 }
 
 const defaultParent: ParentUserRecord = {
@@ -184,6 +196,53 @@ const store: InMemoryStore = {
         recommended_action: 'Consider checking in with Aarav about this conversation. Reassure him that peer exclusion is not his fault.',
         incident_id: 'inc_test_baseline_01',
       },
+    },
+  ],
+  activity_feed: [
+    {
+      id: 'act_01',
+      child_id: 'child_aarav_01',
+      child_name: 'Aarav Sharma',
+      type: 'alert',
+      title: 'Critical Threat Pattern Detected',
+      description: 'Grooming pattern and boundary testing detected on Instagram (@phantom_x)',
+      risk_level: 'CRITICAL',
+      timestamp: new Date(Date.now() - 12 * 60 * 1000).toISOString(),
+      incident_id: 'inc_aarav_01',
+      source: 'instagram',
+    },
+    {
+      id: 'act_02',
+      child_id: 'child_aarav_01',
+      child_name: 'Aarav Sharma',
+      type: 'alert',
+      title: 'High Risk Alert Flagged',
+      description: 'Intimidation and credentials threat detected on Discord (ShadowRealm Gaming Clan)',
+      risk_level: 'HIGH',
+      timestamp: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
+      incident_id: 'inc_aarav_02',
+      source: 'discord',
+    },
+    {
+      id: 'act_03',
+      child_id: 'child_ananya_02',
+      child_name: 'Ananya Sharma',
+      type: 'analysis',
+      title: 'Communication Channel Monitored',
+      description: 'WhatsApp Study Group evaluated: 0 safety flags, wholesome academic discussion',
+      risk_level: 'LOW',
+      timestamp: new Date(Date.now() - 90 * 60 * 1000).toISOString(),
+      source: 'whatsapp',
+    },
+    {
+      id: 'act_04',
+      child_id: 'child_rahul_03',
+      child_name: 'Rahul Sharma',
+      type: 'sync',
+      title: 'Device Shield Synchronized',
+      description: 'iPad Mini synced successfully with SafeChat local privacy shield',
+      risk_level: 'LOW',
+      timestamp: new Date(Date.now() - 120 * 60 * 1000).toISOString(),
     },
   ],
   children: [
@@ -1321,6 +1380,54 @@ async function startServer() {
     });
   });
 
+  function recalculateChildSafety(childId: string) {
+    const child = store.children.find((c) => c.id === childId);
+    if (!child) return;
+    const childIncidents = store.incidents.filter((i) => i.child_id === childId);
+    const openIncidents = childIncidents.filter((i) => i.status === 'open' || i.status === 'under_review');
+    child.open_incidents_count = openIncidents.length;
+
+    if (openIncidents.length === 0) {
+      child.safety_status = 'Safe';
+      child.overall_risk_score = 12;
+    } else {
+      const hasCritical = openIncidents.some((i) => i.risk_level === 'CRITICAL');
+      const maxScore = Math.max(...openIncidents.map((i) => i.risk_score), 70);
+      child.safety_status = hasCritical ? 'Critical' : 'Attention Needed';
+      child.overall_risk_score = maxScore;
+    }
+  }
+
+  // All Incidents with optional search & filters
+  app.get('/api/incidents', (req, res) => {
+    let list = [...store.incidents];
+    const { child_id, status, risk_level, query } = req.query;
+
+    if (child_id && typeof child_id === 'string' && child_id !== 'all') {
+      list = list.filter((i) => i.child_id === child_id);
+    }
+    if (status && typeof status === 'string' && status !== 'all') {
+      if (status === 'open') {
+        list = list.filter((i) => i.status === 'open' || i.status === 'under_review');
+      } else if (status === 'reviewed' || status === 'resolved') {
+        list = list.filter((i) => i.status === 'resolved' || i.status === 'reviewed');
+      }
+    }
+    if (risk_level && typeof risk_level === 'string' && risk_level !== 'all') {
+      list = list.filter((i) => i.risk_level.toUpperCase() === risk_level.toUpperCase());
+    }
+    if (query && typeof query === 'string' && query.trim()) {
+      const q = query.toLowerCase().trim();
+      list = list.filter((i) =>
+        i.primary_concern.toLowerCase().includes(q) ||
+        i.contact_name.toLowerCase().includes(q) ||
+        i.source.toLowerCase().includes(q) ||
+        (i.why_flagged && i.why_flagged.some((w: string) => w.toLowerCase().includes(q)))
+      );
+    }
+    res.json(list);
+  });
+
   // Single Incident by ID (for dedicated Threat Pattern Alert page)
   app.get('/api/incidents/:id', (req, res) => {
     const incident = store.incidents.find((inc) => inc.id === req.params.id);
@@ -1344,7 +1451,321 @@ async function startServer() {
       return res.status(404).json({ error: 'Incident not found' });
     }
     incident.status = status;
+    recalculateChildSafety(incident.child_id);
     res.json({ success: true, id: incident.id, status: incident.status });
+  });
+
+  // Mark Incident as Reviewed
+  app.post('/api/incidents/:id/review', (req, res) => {
+    const incident = store.incidents.find((inc) => inc.id === req.params.id);
+    if (!incident) {
+      return res.status(404).json({ error: 'Incident not found' });
+    }
+    incident.status = 'resolved';
+    recalculateChildSafety(incident.child_id);
+
+    const child = store.children.find((c) => c.id === incident.child_id);
+
+    // Record Activity
+    store.activity_feed.unshift({
+      id: `act_${Date.now()}`,
+      child_id: incident.child_id,
+      child_name: child?.full_name || 'Child',
+      type: 'reviewed',
+      title: 'Safety Alert Reviewed',
+      description: `Parent reviewed and addressed safety alert: "${incident.primary_concern}"`,
+      risk_level: incident.risk_level,
+      timestamp: new Date().toISOString(),
+      incident_id: incident.id,
+      source: incident.source,
+    });
+
+    sendRealtimeEvent(child?.parent_id || 'parent_priya_01', {
+      type: 'INCIDENT_RESOLVED',
+      data: {
+        incident_id: incident.id,
+        child_id: incident.child_id,
+        toast: {
+          title: 'Alert Reviewed',
+          message: `Safety alert for ${incident.contact_name} marked as reviewed.`,
+          type: 'success',
+        },
+      },
+    });
+
+    res.json({ success: true, incident });
+  });
+
+  // Reopen Incident
+  app.post('/api/incidents/:id/reopen', (req, res) => {
+    const incident = store.incidents.find((inc) => inc.id === req.params.id);
+    if (!incident) {
+      return res.status(404).json({ error: 'Incident not found' });
+    }
+    incident.status = 'open';
+    recalculateChildSafety(incident.child_id);
+
+    const child = store.children.find((c) => c.id === incident.child_id);
+
+    store.activity_feed.unshift({
+      id: `act_${Date.now()}`,
+      child_id: incident.child_id,
+      child_name: child?.full_name || 'Child',
+      type: 'alert',
+      title: 'Alert Reopened for Review',
+      description: `Alert for "${incident.primary_concern}" moved back to open status`,
+      risk_level: incident.risk_level,
+      timestamp: new Date().toISOString(),
+      incident_id: incident.id,
+      source: incident.source,
+    });
+
+    sendRealtimeEvent(child?.parent_id || 'parent_priya_01', {
+      type: 'INCIDENT_REOPENED',
+      data: {
+        incident_id: incident.id,
+        child_id: incident.child_id,
+        toast: {
+          title: 'Alert Reopened',
+          message: `Alert for ${incident.contact_name} is now marked as open.`,
+          type: 'warning',
+        },
+      },
+    });
+
+    res.json({ success: true, incident });
+  });
+
+  // Recent Activity Feed
+  app.get('/api/activity', (req, res) => {
+    res.json(store.activity_feed.slice(0, 25));
+  });
+
+  // List All Demo Scenarios
+  app.get('/api/scenarios', (req, res) => {
+    const scenariosSummary = DEMO_SCENARIOS.map((s) => ({
+      id: s.id,
+      title: s.title,
+      category: s.category,
+      risk_level: s.risk_level,
+      risk_score: s.risk_score,
+      child_name: s.child_name,
+      child_age: s.child_age,
+      contact_name: s.contact_name,
+      contact_tag: s.contact_tag,
+      description: s.description,
+      timeframe: s.timeframe,
+      badge_color: s.badge_color,
+      messages_count: s.messages.length,
+      primary_concern: s.benchmarkAnalysis.primary_concern,
+      concerning_signals: s.messages
+        .filter((m) => m.concerningSignal)
+        .map((m) => m.concerningSignal),
+    }));
+    res.json(scenariosSummary);
+  });
+
+  // Run Scenario Simulation
+  app.post('/api/scenarios/:id/run', (req, res) => {
+    const scenarioId = req.params.id;
+    const { child_id } = req.body || {};
+    const scenario = DEMO_SCENARIOS.find((s) => s.id === scenarioId);
+    if (!scenario) {
+      return res.status(404).json({ error: 'Scenario not found' });
+    }
+
+    let targetChild = store.children.find((c) => c.id === child_id);
+    if (!targetChild) {
+      if (scenario.id === 'grooming' || scenario.id === 'threats') {
+        targetChild = store.children.find((c) => c.id === 'child_aarav_01') || store.children[0];
+      } else if (scenario.id === 'cyberbullying') {
+        targetChild = store.children.find((c) => c.id === 'child_aarav_01') || store.children[0];
+      } else if (scenario.id === 'harassment') {
+        targetChild = store.children.find((c) => c.id === 'child_ananya_02') || store.children[1] || store.children[0];
+      } else {
+        targetChild = store.children.find((c) => c.id === 'child_rahul_03') || store.children[2] || store.children[0];
+      }
+    }
+
+    if (scenario.id === 'normal') {
+      targetChild.safety_status = 'Safe';
+      targetChild.overall_risk_score = 9;
+
+      store.activity_feed.unshift({
+        id: `act_${Date.now()}`,
+        child_id: targetChild.id,
+        child_name: targetChild.full_name,
+        type: 'analysis',
+        title: 'Safe Baseline Scenario Simulated',
+        description: `Routine school collaboration verified for ${targetChild.full_name}. No safety threats detected.`,
+        risk_level: 'LOW',
+        timestamp: new Date().toISOString(),
+        source: 'school_chat',
+      });
+
+      sendRealtimeEvent(targetChild.parent_id, {
+        type: 'SCENARIO_SIMULATED',
+        data: {
+          scenario_id: scenario.id,
+          child_id: targetChild.id,
+          risk_level: 'LOW',
+          toast: {
+            title: 'Scenario: Normal Chat',
+            message: `Evaluated routine school chat for ${targetChild.full_name}: Safe baseline confirmed.`,
+            type: 'success',
+          },
+        },
+      });
+
+      return res.json({
+        success: true,
+        scenario,
+        child: targetChild,
+        incident: null,
+      });
+    }
+
+    // High / Critical Risk Scenario
+    const incidentId = `inc_scen_${scenario.id}_${Date.now()}`;
+    const newIncident = {
+      id: incidentId,
+      child_id: targetChild.id,
+      conversation_id: `conv_${targetChild.id}_${scenario.category}`,
+      source: scenario.category === 'cyberbullying' ? 'school_group' : scenario.category === 'grooming' ? 'instagram' : scenario.category === 'harassment' ? 'direct_message' : 'gaming',
+      contact_name: scenario.contact_name,
+      risk_score: scenario.risk_score,
+      risk_level: scenario.risk_level,
+      primary_concern: scenario.benchmarkAnalysis.primary_concern,
+      confidence: scenario.benchmarkAnalysis.confidence,
+      categories: scenario.benchmarkAnalysis.categories,
+      behavioral_patterns: scenario.benchmarkAnalysis.behavioral_patterns,
+      why_flagged: scenario.benchmarkAnalysis.why_flagged,
+      recommended_actions: scenario.benchmarkAnalysis.recommended_parent_action,
+      status: 'open' as const,
+      created_at: new Date().toISOString(),
+      threatening_messages: scenario.messages.map((m, idx) => ({
+        id: `msg_scen_${m.id}`,
+        day: m.day,
+        timestamp: m.timestamp,
+        sender: m.sender as any,
+        sender_label: m.displayName,
+        text: m.text,
+        is_threatening: !!m.concerningSignal,
+        threat_category: m.concerningSignal || scenario.title,
+        message_risk_score: m.concerningSignal ? Math.min(98, scenario.risk_score - (scenario.messages.length - idx - 1) * 8) : 15,
+        escalation_stage: m.concerningSignal || 'Contextual Dialogue',
+        explanation: m.concerningSignal ? `Flagged behavioral pattern: ${m.concerningSignal}` : 'Contextual exchange.',
+      })),
+      pattern_escalation: scenario.benchmarkAnalysis.escalation_trend.timeline.map((t) => ({
+        day: t.day,
+        day_number: t.dayNumber,
+        phase_title: t.label,
+        quote_excerpt: t.triggerEvent || t.label,
+        risk_score: t.score,
+        danger_analysis: t.triggerEvent ? `Trigger event: "${t.triggerEvent}"` : 'Progressive behavioral shift.',
+        tactics: [t.label],
+        severity: t.severity,
+      })),
+      four_tier_analysis: {
+        message_level: {
+          score: scenario.risk_score,
+          label: `${scenario.risk_level} Threat Signal`,
+          description: `Direct behavioral anomalies detected matching "${scenario.title}".`,
+          signals: scenario.benchmarkAnalysis.why_flagged.slice(0, 3),
+        },
+        conversation_level: {
+          score: Math.min(100, scenario.risk_score - 5),
+          label: 'Systematic Pattern Progression',
+          description: scenario.description,
+          frequency: `${scenario.timeframe} observation timeline`,
+        },
+        time_escalation: {
+          score: Math.min(100, scenario.risk_score + 2),
+          label: 'Risk Velocity Escalation',
+          description: scenario.benchmarkAnalysis.escalation_trend.trend_description,
+          velocity_rate: `${scenario.benchmarkAnalysis.escalation_trend.percentage_increase}% risk acceleration`,
+        },
+        relationship_manipulation: {
+          score: scenario.risk_score,
+          label: 'Behavioral Manipulation Tactics',
+          description: scenario.benchmarkAnalysis.evidence_summary,
+          tactics_detected: scenario.benchmarkAnalysis.behavioral_patterns.map((p) => p.name),
+        },
+      },
+    };
+
+    store.incidents.unshift(newIncident);
+
+    // Update child stats
+    targetChild.safety_status = scenario.risk_level === 'CRITICAL' ? 'Critical' : 'Attention Needed';
+    targetChild.overall_risk_score = scenario.risk_score;
+    targetChild.open_incidents_count = store.incidents.filter(
+      (i) => i.child_id === targetChild.id && (i.status === 'open' || i.status === 'under_review')
+    ).length;
+
+    // Create Notification
+    const newNotif = {
+      id: `notif_${Date.now()}`,
+      parent_id: targetChild.parent_id,
+      child_id: targetChild.id,
+      child_name: targetChild.full_name,
+      incident_id: incidentId,
+      title: `${scenario.risk_level} Safety Alert: ${scenario.title}`,
+      message: `SafeChat detected ${scenario.benchmarkAnalysis.primary_concern} involving ${scenario.contact_name}. Tap to inspect threat evidence and suggested parent action.`,
+      severity: scenario.risk_level,
+      delivery_channel: 'in_app' as const,
+      is_read: false,
+      created_at: new Date().toISOString(),
+    };
+    store.notifications.unshift(newNotif);
+
+    // Record Activity
+    store.activity_feed.unshift({
+      id: `act_${Date.now()}`,
+      child_id: targetChild.id,
+      child_name: targetChild.full_name,
+      type: 'alert',
+      title: `${scenario.risk_level} Risk Alert Simulated`,
+      description: `${scenario.title} detected on ${scenario.contact_tag || 'Messaging'} (${scenario.contact_name})`,
+      risk_level: scenario.risk_level,
+      timestamp: new Date().toISOString(),
+      incident_id: incidentId,
+      source: newIncident.source,
+    });
+
+    sendRealtimeEvent(targetChild.parent_id, {
+      type: 'RISK_ALERT',
+      data: {
+        incident_id: incidentId,
+        child_id: targetChild.id,
+        child_name: targetChild.full_name,
+        risk_level: scenario.risk_level,
+        primary_concern: scenario.benchmarkAnalysis.primary_concern,
+        toast: {
+          title: `⚠️ ${scenario.risk_level} Alert Flagged`,
+          message: `${scenario.title} detected for ${targetChild.full_name}. Review recommended actions.`,
+          type: scenario.risk_level === 'CRITICAL' ? 'critical' : 'warning',
+        },
+      },
+    });
+
+    res.json({
+      success: true,
+      incident: newIncident,
+      child: targetChild,
+      scenario,
+    });
+  });
+
+  // Download project ZIP
+  app.get('/api/download-zip', (req, res) => {
+    const zipPath = path.join(process.cwd(), 'safechat-portfolio-project.zip');
+    res.download(zipPath, 'safechat-portfolio-project.zip', (err) => {
+      if (err && !res.headersSent) {
+        console.error('Error downloading zip:', err);
+        res.status(500).json({ error: 'Failed to download zip file' });
+      }
+    });
   });
 
   // Parent Notifications

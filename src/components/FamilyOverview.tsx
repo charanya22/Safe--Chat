@@ -17,6 +17,7 @@ import {
   Layers,
   Sparkles,
   Info,
+  Flame,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -31,7 +32,8 @@ import {
   Pie,
   Cell,
 } from 'recharts';
-import { ChildProfile, RiskConcentrationItem, RiskLevel } from '../types';
+import { ChildProfile, RiskConcentrationItem, RiskLevel, ChildIncident, RecentActivityItem } from '../types';
+import { RecentActivityFeed } from './RecentActivityFeed';
 
 interface FamilyOverviewProps {
   childrenList: ChildProfile[];
@@ -40,6 +42,9 @@ interface FamilyOverviewProps {
   onOpenIncident?: (incidentId: string) => void;
   onOpenAddChildModal?: () => void;
   onOpenCreateTestConversation?: () => void;
+  onOpenSimulator?: () => void;
+  onOpenHistory?: () => void;
+  onRefreshData?: () => void;
 }
 
 const PLATFORM_COLORS = ['#6366f1', '#e11d48', '#10b981', '#f59e0b', '#8b5cf6'];
@@ -51,12 +56,39 @@ export const FamilyOverview: React.FC<FamilyOverviewProps> = ({
   onOpenIncident,
   onOpenAddChildModal,
   onOpenCreateTestConversation,
+  onOpenSimulator,
+  onOpenHistory,
+  onRefreshData,
 }) => {
   const [riskConcentration, setRiskConcentration] = useState<{
     total_incidents: number;
     sources: RiskConcentrationItem[];
     primary_source: string;
   } | null>(null);
+
+  const [activeAlerts, setActiveAlerts] = useState<ChildIncident[]>([]);
+  const [activities, setActivities] = useState<RecentActivityItem[]>([]);
+  const [runningScenario, setRunningScenario] = useState<string | null>(null);
+  const [reviewingAlertId, setReviewingAlertId] = useState<string | null>(null);
+
+  const fetchFamilyAlertsAndActivity = async () => {
+    try {
+      const [incRes, actRes] = await Promise.all([
+        fetch('/api/incidents?status=open'),
+        fetch('/api/activity'),
+      ]);
+      if (incRes.ok) {
+        const incData = await incRes.json();
+        setActiveAlerts(incData);
+      }
+      if (actRes.ok) {
+        const actData = await actRes.json();
+        setActivities(actData);
+      }
+    } catch (e) {
+      console.error('Failed to load active alerts or activity:', e);
+    }
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -74,10 +106,48 @@ export const FamilyOverview: React.FC<FamilyOverviewProps> = ({
       }
     };
     fetchConcentration();
+    fetchFamilyAlertsAndActivity();
     return () => {
       isMounted = false;
     };
   }, [childrenList]);
+
+  const handleReviewAlert = async (incidentId: string) => {
+    setReviewingAlertId(incidentId);
+    try {
+      const res = await fetch(`/api/incidents/${incidentId}/review`, {
+        method: 'POST',
+      });
+      if (res.ok) {
+        setActiveAlerts((prev) => prev.filter((i) => i.id !== incidentId));
+        fetchFamilyAlertsAndActivity();
+        if (onRefreshData) onRefreshData();
+      }
+    } catch (err) {
+      console.error('Failed to review alert:', err);
+    } finally {
+      setReviewingAlertId(null);
+    }
+  };
+
+  const handleQuickRunScenario = async (scenarioId: string) => {
+    setRunningScenario(scenarioId);
+    try {
+      const res = await fetch(`/api/scenarios/${scenarioId}/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      if (res.ok) {
+        await fetchFamilyAlertsAndActivity();
+        if (onRefreshData) onRefreshData();
+      }
+    } catch (err) {
+      console.error('Failed to run scenario:', err);
+    } finally {
+      setRunningScenario(null);
+    }
+  };
 
   const attentionCount = childrenList.filter(
     (c) => c.safety_status === 'Attention Needed' || c.safety_status === 'Critical'
@@ -144,6 +214,80 @@ export const FamilyOverview: React.FC<FamilyOverviewProps> = ({
 
   return (
     <div className="space-y-6">
+      {/* PUBLIC DEMO PORTFOLIO NOTICE BANNER */}
+      <div className="rounded-2xl border border-indigo-200 bg-gradient-to-r from-indigo-50 via-white to-amber-50 p-4 sm:p-5 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex items-start sm:items-center gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-xs">
+              <Sparkles className="h-5 w-5" />
+            </span>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-xs sm:text-sm text-slate-900">
+                  SafeChat Interactive Portfolio Demo
+                </span>
+                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                  Open Public Access
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-600 mt-0.5">
+                Simulated environment with fictional child profiles. Test multi-stage threat detection without signing in or collecting real messages.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+            {onOpenSimulator && (
+              <button
+                id="btn-open-simulator-hero"
+                onClick={onOpenSimulator}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-indigo-500 transition cursor-pointer"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                <span>Open Scenario Simulator &rarr;</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Quick 1-Click Scenario Runner Bar */}
+        <div className="mt-3 pt-3 border-t border-indigo-100 flex flex-wrap items-center gap-2 text-xs">
+          <span className="font-semibold text-slate-700 text-[11px]">⚡ Quick Test a Scenario:</span>
+          <button
+            id="quick-scenario-grooming"
+            onClick={() => handleQuickRunScenario('grooming')}
+            disabled={runningScenario !== null}
+            className="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-[11px] font-semibold text-rose-800 hover:bg-rose-100 transition cursor-pointer disabled:opacity-50"
+          >
+            {runningScenario === 'grooming' ? 'Simulating...' : '1. Grooming & Isolation (Aarav)'}
+          </button>
+          <button
+            id="quick-scenario-cyberbullying"
+            onClick={() => handleQuickRunScenario('cyberbullying')}
+            disabled={runningScenario !== null}
+            className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-800 hover:bg-amber-100 transition cursor-pointer disabled:opacity-50"
+          >
+            {runningScenario === 'cyberbullying' ? 'Simulating...' : '2. Cyberbullying & Exclusion'}
+          </button>
+          <button
+            id="quick-scenario-threats"
+            onClick={() => handleQuickRunScenario('threats')}
+            disabled={runningScenario !== null}
+            className="rounded-lg border border-red-300 bg-red-50 px-2.5 py-1 text-[11px] font-semibold text-red-800 hover:bg-red-100 transition cursor-pointer disabled:opacity-50"
+          >
+            {runningScenario === 'threats' ? 'Simulating...' : '3. Extortion & Threats'}
+          </button>
+          <button
+            id="quick-scenario-normal"
+            onClick={() => handleQuickRunScenario('normal')}
+            disabled={runningScenario !== null}
+            className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-800 hover:bg-emerald-100 transition cursor-pointer disabled:opacity-50"
+          >
+            {runningScenario === 'normal' ? 'Simulating...' : '4. Normal Homework Chat'}
+          </button>
+        </div>
+      </div>
+
       {/* 3. SIMPLIFIED "FAMILY SAFETY STATUS" BANNER */}
       <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
@@ -380,8 +524,11 @@ export const FamilyOverview: React.FC<FamilyOverviewProps> = ({
                   {isAlert && onOpenIncident && (
                     <button
                       id={`btn-threat-pattern-${child.id}`}
-                      onClick={() => onOpenIncident('inc_aarav_01')}
-                      className="w-full flex items-center justify-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold bg-rose-600 text-white hover:bg-rose-500 shadow-sm transition"
+                      onClick={() => {
+                        const childIncident = activeAlerts.find((a) => a.child_id === child.id);
+                        onOpenIncident(childIncident?.id || 'inc_aarav_01');
+                      }}
+                      className="w-full flex items-center justify-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold bg-rose-600 text-white hover:bg-rose-500 shadow-sm transition cursor-pointer"
                     >
                       <AlertTriangle className="h-3.5 w-3.5" />
                       <span>Inspect Threat Pattern Page &rarr;</span>
@@ -391,7 +538,7 @@ export const FamilyOverview: React.FC<FamilyOverviewProps> = ({
                   <button
                     id={`btn-inspect-child-${child.id}`}
                     onClick={() => onSelectChild(child.id)}
-                    className={`w-full flex items-center justify-center gap-1.5 rounded-xl px-4 py-2 text-xs font-semibold transition ${
+                    className={`w-full flex items-center justify-center gap-1.5 rounded-xl px-4 py-2 text-xs font-semibold transition cursor-pointer ${
                       isAlert
                         ? 'bg-slate-100 text-slate-800 hover:bg-slate-200'
                         : 'bg-slate-900 text-white hover:bg-slate-800 shadow-sm'
@@ -406,6 +553,147 @@ export const FamilyOverview: React.FC<FamilyOverviewProps> = ({
           })}
         </div>
       </div>
+
+      {/* ACTIVE ALERTS SECTION WITH WORKING "MARK AS REVIEWED" BUTTON */}
+      {activeAlerts.length > 0 && (
+        <div className="rounded-2xl border border-rose-200 bg-white p-5 sm:p-6 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-100 pb-3 mb-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-rose-100 text-rose-600">
+                  <ShieldAlert className="h-4 w-4" />
+                </span>
+                <h3 className="text-base font-bold text-slate-900">
+                  Active Safety Alerts Requiring Parent Review ({activeAlerts.length})
+                </h3>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                High-priority behavioral patterns flagged by SafeChat AI. Review recommendations and mark when addressed.
+              </p>
+            </div>
+
+            {onOpenHistory && (
+              <button
+                id="btn-family-view-history"
+                onClick={onOpenHistory}
+                className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 self-start sm:self-auto cursor-pointer"
+              >
+                View Full Alert History &rarr;
+              </button>
+            )}
+          </div>
+
+          <div className="space-y-4">
+            {activeAlerts.map((alert) => {
+              const child = childrenList.find((c) => c.id === alert.child_id);
+              const isCritical = alert.risk_level === 'CRITICAL';
+
+              return (
+                <div
+                  key={alert.id}
+                  id={`active-alert-banner-${alert.id}`}
+                  className={`rounded-xl border p-4.5 transition-all ${
+                    isCritical
+                      ? 'border-rose-200 bg-rose-50/40 ring-1 ring-rose-300/40'
+                      : 'border-amber-200 bg-amber-50/40 ring-1 ring-amber-300/40'
+                  }`}
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-200/60 pb-3">
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <span
+                        className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
+                          isCritical
+                            ? 'bg-rose-100 text-rose-800'
+                            : 'bg-amber-100 text-amber-800'
+                        }`}
+                      >
+                        {alert.risk_level} RISK • {alert.risk_score}/100
+                      </span>
+
+                      <span className="text-xs font-bold text-slate-900">
+                        {child?.full_name || 'Protected Child'}
+                      </span>
+
+                      <span className="text-xs text-slate-400">•</span>
+
+                      <span className="rounded-md bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-600 border border-slate-200 uppercase">
+                        {alert.source}
+                      </span>
+
+                      <span className="text-xs text-slate-500">
+                        Contact: <strong>{alert.contact_name}</strong>
+                      </span>
+                    </div>
+
+                    {/* Working "Mark as reviewed" button on every alert */}
+                    <button
+                      id={`btn-review-active-alert-${alert.id}`}
+                      disabled={reviewingAlertId === alert.id}
+                      onClick={() => handleReviewAlert(alert.id)}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-500 transition cursor-pointer disabled:opacity-50"
+                    >
+                      <CheckCircle2 className="h-4 w-4" />
+                      <span>
+                        {reviewingAlertId === alert.id
+                          ? 'Marking as reviewed...'
+                          : 'Mark as reviewed'}
+                      </span>
+                    </button>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-1 md:grid-cols-12 gap-3 text-xs">
+                    <div className="md:col-span-8">
+                      <div className="font-bold text-slate-900 text-sm mb-1">
+                        {alert.primary_concern}
+                      </div>
+                      <div className="text-[11px] font-semibold text-slate-600 mb-0.5">
+                        Observed Behavioral Pattern:
+                      </div>
+                      <ul className="list-disc pl-4 space-y-0.5 text-slate-600 text-[11px]">
+                        {alert.why_flagged.map((item, idx) => (
+                          <li key={idx}>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <div className="md:col-span-4 rounded-xl border border-indigo-100 bg-white p-3 flex flex-col justify-between">
+                      <div>
+                        <div className="text-[11px] font-bold text-indigo-950 mb-1">
+                          Suggested Action Script:
+                        </div>
+                        <p className="text-slate-600 text-[11px] italic leading-relaxed">
+                          &ldquo;{alert.recommended_actions?.[0]?.conversationStarter ||
+                            alert.recommended_actions?.[0]?.advice ||
+                            'Check in with your child supportively.'}&rdquo;
+                        </p>
+                      </div>
+
+                      {onOpenIncident && (
+                        <div className="mt-3 pt-2 border-t border-slate-100">
+                          <button
+                            onClick={() => onOpenIncident(alert.id)}
+                            className="text-xs font-bold text-rose-700 hover:text-rose-900 flex items-center gap-1 cursor-pointer"
+                          >
+                            <Flame className="h-3.5 w-3.5 text-rose-600" />
+                            <span>Inspect Threat Evidence &rarr;</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* RECENT ACTIVITY FEED */}
+      <RecentActivityFeed
+        activities={activities}
+        onOpenIncident={onOpenIncident}
+        onSelectChild={onSelectChild}
+      />
 
       {/* 4. FAMILY PROTECTION ENGINE WITH DYNAMIC RISK CONCENTRATION */}
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">

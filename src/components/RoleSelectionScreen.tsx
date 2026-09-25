@@ -8,11 +8,11 @@ interface RoleSelectionScreenProps {
 
 export const RoleSelectionScreen: React.FC<RoleSelectionScreenProps> = ({ onSelectRole }) => {
   const handleOpenChildNewTab = () => {
-    window.open(`${window.location.origin}/?role=child`, '_blank');
+    onSelectRole('child');
   };
 
   const handleOpenParentNewTab = () => {
-    window.open(`${window.location.origin}/?role=parent`, '_blank');
+    onSelectRole('parent');
   };
 
   return (

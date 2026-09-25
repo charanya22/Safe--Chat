@@ -115,81 +115,89 @@ export const ThreatPatternInvestigationPage: React.FC<ThreatPatternInvestigation
 
   const handleExportIncidentReport = () => {
     setReportExported(true);
-    const printWindow = window.open('', '_blank');
-    if (printWindow && incident) {
-      const messagesHtml = (incident.threatening_messages || [])
-        .map(
-          (m) => `
-          <div style="margin-bottom: 12px; padding: 10px; border-left: 4px solid ${
-            m.is_threatening ? '#e11d48' : '#94a3b8'
-          }; background: ${m.is_threatening ? '#fff1f2' : '#f8fafc'};">
-            <div style="font-size: 11px; color: #64748b; font-weight: bold;">
-              ${m.day} | ${m.timestamp} | Sender: ${m.sender_label} ${
-            m.is_threatening ? '<span style="color:#e11d48;">[FLAGGED THREAT - ' + (m.threat_category || 'RISK') + ']</span>' : ''
-          }
-            </div>
-            <div style="margin-top: 4px; font-family: monospace; font-size: 13px; color: #0f172a;">
-              "${m.text}"
-            </div>
-            <div style="font-size: 11px; color: #475569; margin-top: 4px;">
-              <strong>Risk Score:</strong> ${m.message_risk_score}/100 | <strong>Analysis:</strong> ${m.explanation || 'Analyzed by SafeChat Behavioral Engine'}
-            </div>
+    if (!incident) return;
+
+    const messagesHtml = (incident.threatening_messages || [])
+      .map(
+        (m) => `
+        <div style="margin-bottom: 12px; padding: 10px; border-left: 4px solid ${
+          m.is_threatening ? '#e11d48' : '#94a3b8'
+        }; background: ${m.is_threatening ? '#fff1f2' : '#f8fafc'};">
+          <div style="font-size: 11px; color: #64748b; font-weight: bold;">
+            ${m.day} | ${m.timestamp} | Sender: ${m.sender_label} ${
+          m.is_threatening ? '<span style="color:#e11d48;">[FLAGGED THREAT - ' + (m.threat_category || 'RISK') + ']</span>' : ''
+        }
           </div>
-        `
-        )
-        .join('');
-
-      printWindow.document.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>SafeChat AI - Certified Child Threat Pattern Dossier (${incident.id})</title>
-          <style>
-            body { font-family: system-ui, -apple-system, sans-serif; padding: 32px; color: #0f172a; max-width: 800px; margin: 0 auto; line-height: 1.5; }
-            h1 { font-size: 20px; margin-bottom: 4px; color: #0f172a; }
-            .header-badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; background: #fee2e2; color: #991b1b; }
-            .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0; padding: 12px; background: #f1f5f9; border-radius: 6px; font-size: 12px; }
-            .signature { margin-top: 32px; border-top: 1px solid #cbd5e1; padding-top: 16px; font-size: 11px; color: #64748b; }
-          </style>
-        </head>
-        <body>
-          <div class="header-badge">OFFICIAL CHILD SAFETY INCIDENT DOSSIER</div>
-          <h1>SafeChat AI - Threat Pattern Investigation Report</h1>
-          <p style="font-size: 12px; color: #64748b;">Generated for Law Enforcement, School Administration, and Parental Intervention</p>
-          
-          <div class="meta-grid">
-            <div><strong>Incident Reference:</strong> ${incident.id}</div>
-            <div><strong>Timestamp:</strong> ${new Date(incident.created_at).toLocaleString()}</div>
-            <div><strong>Monitored Platform:</strong> ${incident.source.toUpperCase()} (${incident.contact_name})</div>
-            <div><strong>Risk Classification:</strong> ${incident.risk_level} (${incident.risk_score}/100)</div>
-            <div><strong>Primary Threat Vector:</strong> ${incident.primary_concern}</div>
-            <div><strong>Confidence Rating:</strong> ${incident.confidence}% (Multi-Tier Pattern Engine)</div>
+          <div style="margin-top: 4px; font-family: monospace; font-size: 13px; color: #0f172a;">
+            "${m.text}"
           </div>
-
-          <h2 style="font-size: 14px; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px; margin-top: 24px;">1. Chronological Threat Progression & Verbatim Chat Excerpts (PII Masked)</h2>
-          <p style="font-size: 11px; color: #64748b;">Notice: Raw child PII (phone numbers, addresses) has been masked on-device. Threatening dialogue is preserved verbatim as evidentiary proof.</p>
-          ${messagesHtml}
-
-          <h2 style="font-size: 14px; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px; margin-top: 24px;">2. Four-Tier Pattern Engine Findings</h2>
-          <ul>
-            ${incident.why_flagged.map((w) => `<li>${w}</li>`).join('')}
-          </ul>
-
-          <h2 style="font-size: 14px; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px; margin-top: 24px;">3. Recommended Parent & Protective Actions</h2>
-          <ul>
-            ${incident.recommended_actions.map((a) => `<li><strong>${a.title}:</strong> ${a.advice}</li>`).join('')}
-          </ul>
-
-          <div class="signature">
-            <p><strong>System Certification:</strong> Authenticated by SafeChat AI Pattern Escalation Engine. Verified on child's monitored device collector.</p>
-            <p>Parent Contact: Priya Sharma | Report Hash: SHA256-${incident.id.toUpperCase()}-VERIFIED</p>
+          <div style="font-size: 11px; color: #475569; margin-top: 4px;">
+            <strong>Risk Score:</strong> ${m.message_risk_score}/100 | <strong>Analysis:</strong> ${m.explanation || 'Analyzed by SafeChat Behavioral Engine'}
           </div>
-          <script>window.print();</script>
-        </body>
-        </html>
-      `);
-      printWindow.document.close();
-    }
+        </div>
+      `
+      )
+      .join('');
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8" />
+        <title>SafeChat AI - Certified Child Threat Pattern Dossier (${incident.id})</title>
+        <style>
+          body { font-family: system-ui, -apple-system, sans-serif; padding: 32px; color: #0f172a; max-width: 800px; margin: 0 auto; line-height: 1.5; }
+          h1 { font-size: 20px; margin-bottom: 4px; color: #0f172a; }
+          .header-badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; background: #fee2e2; color: #991b1b; }
+          .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0; padding: 12px; background: #f1f5f9; border-radius: 6px; font-size: 12px; }
+          .signature { margin-top: 32px; border-top: 1px solid #cbd5e1; padding-top: 16px; font-size: 11px; color: #64748b; }
+        </style>
+      </head>
+      <body>
+        <div class="header-badge">OFFICIAL CHILD SAFETY INCIDENT DOSSIER</div>
+        <h1>SafeChat AI - Threat Pattern Investigation Report</h1>
+        <p style="font-size: 12px; color: #64748b;">Generated for Law Enforcement, School Administration, and Parental Intervention</p>
+        
+        <div class="meta-grid">
+          <div><strong>Incident Reference:</strong> ${incident.id}</div>
+          <div><strong>Timestamp:</strong> ${new Date(incident.created_at).toLocaleString()}</div>
+          <div><strong>Monitored Platform:</strong> ${incident.source.toUpperCase()} (${incident.contact_name})</div>
+          <div><strong>Risk Classification:</strong> ${incident.risk_level} (${incident.risk_score}/100)</div>
+          <div><strong>Primary Threat Vector:</strong> ${incident.primary_concern}</div>
+          <div><strong>Confidence Rating:</strong> ${incident.confidence}% (Multi-Tier Pattern Engine)</div>
+        </div>
+
+        <h2 style="font-size: 14px; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px; margin-top: 24px;">1. Chronological Threat Progression & Verbatim Chat Excerpts (PII Masked)</h2>
+        <p style="font-size: 11px; color: #64748b;">Notice: Raw child PII (phone numbers, addresses) has been masked on-device. Threatening dialogue is preserved verbatim as evidentiary proof.</p>
+        ${messagesHtml}
+
+        <h2 style="font-size: 14px; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px; margin-top: 24px;">2. Four-Tier Pattern Engine Findings</h2>
+        <ul>
+          ${incident.why_flagged.map((w) => `<li>${w}</li>`).join('')}
+        </ul>
+
+        <h2 style="font-size: 14px; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px; margin-top: 24px;">3. Recommended Parent & Protective Actions</h2>
+        <ul>
+          ${incident.recommended_actions.map((a) => `<li><strong>${a.title}:</strong> ${a.advice}</li>`).join('')}
+        </ul>
+
+        <div class="signature">
+          <p><strong>System Certification:</strong> Authenticated by SafeChat AI Pattern Escalation Engine. Verified on child's monitored device collector.</p>
+          <p>Parent Contact: Priya Sharma | Report Hash: SHA256-${incident.id.toUpperCase()}-VERIFIED</p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const blob = new Blob([htmlContent], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `safechat-evidence-report-${incident.id}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   if (loading) {
